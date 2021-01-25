@@ -18,8 +18,9 @@ data Context = Context {templateFile :: String
                         , newFile :: Maybe String
                         , result :: [String]}
 
-prepareTeX :: String -> String -> IO Context
-prepareTeX templateFile sourceFile =
+-- загружаем переменные в структуру Context
+prepare :: String -> String -> IO Context
+prepare templateFile sourceFile =
     let
         templateDir = takeDirectory templateFile ++ "/"
         vars = Map.empty
@@ -29,8 +30,7 @@ prepareTeX templateFile sourceFile =
 
 loadVars :: Context -> String -> IO Context
 loadVars context sourceFile =
-    readFile sourceFile
-    >>= foldM (processLine processDirective) context . lines
+    readFile sourceFile >>= foldM (processLine processDirective) context . lines
 
 processLine :: (Context -> String -> Context) -> Context -> String -> IO Context
 processLine pureProcess context line =
@@ -72,6 +72,7 @@ regexpReplaceAll regexp f str =
         (_, "", _) -> str
         (before, at, after) -> before ++ f at ++ regexpReplaceAll regexp f after
 
+-- применяем переменные из Context к шаблону
 process :: Context -> String -> String -> IO ()
 process context templateFile outFile =
     readFile templateFile
@@ -108,7 +109,7 @@ getResult = runExceptT $ do
     sourceExists <- lift $ doesFileExist sourceFile
     check sourceExists $ "Не найден файл данных " ++ sourceFile
     context@(Context { templateFile = templateFile1
-                       , vars = vars }) <- lift $ prepareTeX templateFile sourceFile
+                       , vars = vars }) <- lift $ prepare templateFile sourceFile
     templateExists <- lift $ doesFileExist templateFile1
     check templateExists $ "Не найден файл шаблона " ++ templateFile1
     lift $ process context templateFile1 outFile
